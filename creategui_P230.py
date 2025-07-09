@@ -64,11 +64,10 @@ class ProductionStatusBoard(QWidget):
         self.header_label = header_label
         self.header_widget.setStyleSheet("background-color: #20D191; padding: 10px;")
         
-        # Điều chỉnh layout để time không bị che khuất bởi hình ảnh
+        # Điều chỉnh layout để time ở bên phải
         header_layout.addWidget(header_label)
-        header_layout.addStretch()  # Thêm space để đẩy time về giữa
+        header_layout.addStretch()  # Đẩy time_label về bên phải
         header_layout.addWidget(self.time_label)
-        header_layout.addStretch()  # Thêm space để tránh hình ảnh che khuất
         
         self.header_widget.setLayout(header_layout)
         self.header_widget.setFixedHeight(150) 
