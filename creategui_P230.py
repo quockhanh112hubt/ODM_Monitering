@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, QDateTime, QTimer
 import pyodbc
 import cx_Oracle
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QMainWindow, QAction, QMenuBar, QComboBox, QWidgetAction, QSizePolicy
-from PyQt5.QtGui import QFont, QKeySequence
+from PyQt5.QtGui import QFont, QKeySequence, QPixmap
 from PyQt5.QtWidgets import QShortcut
 from datetime import datetime, timedelta
 
@@ -26,12 +26,17 @@ class ProductionStatusBoard(QWidget):
     def __init__(self, menu_bar):
         super().__init__()
         self.menu_bar = menu_bar
+        self.current_color_value = "GREEN"  # Khởi tạo màu mặc định
         self.setWindowTitle("P2HB 3.0 PRODUCTION STATUS BOARD")
         self.setGeometry(100, 100, 1200, 400)
         self.create_ui()
 
         self.connect_to_database()
         self.connect_to_oracle_database()
+        
+        # Hiển thị hình ảnh mặc định ngay khi khởi tạo
+        self.update_color_image("GREEN")
+        
         self.update_data_from_db()
 
         self.data_update_timer = QTimer(self)
@@ -54,14 +59,53 @@ class ProductionStatusBoard(QWidget):
         timer.timeout.connect(self.update_time)
         timer.start(1000)
 
-        header_widget = QWidget()
-        header_widget.setStyleSheet("background-color: #20D191; padding: 10px;")
+        # Lưu trữ references để có thể cập nhật màu sắc sau
+        self.header_widget = QWidget()
+        self.header_label = header_label
+        self.header_widget.setStyleSheet("background-color: #20D191; padding: 10px;")
+        
+        # Điều chỉnh layout để time không bị che khuất bởi hình ảnh
         header_layout.addWidget(header_label)
-        header_layout.addWidget(self.time_label, alignment=Qt.AlignRight)
-        header_widget.setLayout(header_layout)
-        header_widget.setFixedHeight(150) 
+        header_layout.addStretch()  # Thêm space để đẩy time về giữa
+        header_layout.addWidget(self.time_label)
+        header_layout.addStretch()  # Thêm space để tránh hình ảnh che khuất
+        
+        self.header_widget.setLayout(header_layout)
+        self.header_widget.setFixedHeight(150) 
 
-        main_layout.addWidget(header_widget)
+        main_layout.addWidget(self.header_widget)
+
+        # Tạo layout chính cho nội dung
+        main_line_layout = QVBoxLayout()
+        main_line_frame = QFrame()
+        main_line_frame.setFixedHeight(850)
+        main_line_frame.setStyleSheet("""
+            background-color: white;
+            border: 2px solid #E0E0E0;
+            border-radius: 20px;
+            padding: 20px;
+        """)
+
+        self.main_line_label = QLabel("INSP3(Calibration) LINE")
+        self.main_line_label.setFont(QFont("Arial", 48, QFont.Bold))
+        self.main_line_label.setAlignment(Qt.AlignLeft)
+        self.main_line_label.setFixedHeight(150)
+
+        # Tạo layout ngang cho hình ảnh và dữ liệu
+        content_layout = QHBoxLayout()
+        
+        # Tạo hình ảnh màu ở bên trái
+        self.color_image_label = QLabel()
+        self.color_image_label.setFixedSize(330, 600)  # Tỷ lệ 1:4 phù hợp với hình ảnh dài
+        self.color_image_label.setStyleSheet("background-color: transparent; border: none; padding: 5px;")
+        self.color_image_label.setAlignment(Qt.AlignCenter)
+        self.color_image_label.setScaledContents(True)  # Bật auto scale để tránh cắt xén
+        
+        # Thêm hình ảnh vào layout bên trái
+        content_layout.addWidget(self.color_image_label)
+        
+        # Tạo layout dữ liệu bên phải
+        data_layout = QVBoxLayout()
 
         self.line_selector = QComboBox()
         self.line_selector.addItems([
@@ -96,7 +140,7 @@ class ProductionStatusBoard(QWidget):
 
         data_layout = QVBoxLayout()
         self.sections = {
-            "DESTINATION": QLabel("Loading..."),
+            "COLOR / DESTINATION": QLabel("Loading..."),
             "PLAN": QLabel("Loading..."),
             "ACTUAL": QLabel("Loading..."),
             "GAP": QLabel("Loading..."),
@@ -111,18 +155,19 @@ class ProductionStatusBoard(QWidget):
             section_label.setAlignment(Qt.AlignLeft)
             section_label.setFixedHeight(120)
             section_label.setStyleSheet("border: none;")
-            # section_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
+            
             value_label.setFont(QFont("Arial", 60, QFont.Bold))
             value_label.setAlignment(Qt.AlignRight)
             value_label.setFixedHeight(120)
             value_label.setStyleSheet("border: none;")
-            # value_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
+            
             if label == "GAP":
                 value_label.setStyleSheet("color: red; border: none;")
             elif label == "RATE (%)":
                 value_label.setStyleSheet("color: blue; border: none;")
+            elif label == "COLOR / DESTINATION":
+                # Lưu trữ reference để có thể cập nhật màu sau
+                self.color_destination_label = value_label
 
             section_layout.addWidget(section_label)
             section_layout.addWidget(value_label)
@@ -135,8 +180,12 @@ class ProductionStatusBoard(QWidget):
                 data_layout.addWidget(line)
                 data_layout.setSpacing(0)
 
+        # Thêm layout dữ liệu vào layout ngang
+        content_layout.addLayout(data_layout)
+        
+        # Thêm các thành phần vào layout chính
         main_line_layout.addWidget(self.main_line_label)
-        main_line_layout.addLayout(data_layout)
+        main_line_layout.addLayout(content_layout)
         main_line_frame.setLayout(main_line_layout)
         main_layout.addWidget(main_line_frame)
 
@@ -303,16 +352,22 @@ class ProductionStatusBoard(QWidget):
 
                 # Phần truy vấn kế hoạch
                 oracle_query = f"""
-                    select b.DESCRIPTION as destination, sum(nvl(a.work_order_qty, 0)) as plan_qty
-                    from asfc_prod_plan_data a
+                    SELECT 
+                        b.DESCRIPTION AS destination, 
+                        SUM(NVL(a.work_order_qty, 0)) AS plan_qty,
+                        MAX(a.ITEM_CODE) AS item_code
+                    FROM asfc_prod_plan_data a
                     LEFT OUTER JOIN SYS_SYSTEM_CODE_DATA b 
-                    ON a.EXPAND_FIELD5 = b.CODE_NAME AND TABLE_NAME = 'CUSTOMER_DST'
-                    WHERE a.PLANT = 'PKTNG'
-                    AND forecast_sdate >= '{today_str}' 
-                    AND forecast_sdate < '{tomorrow_str}'
-                    AND status = 'Y'
-                    AND WORK_LINE = 'D'
-                    GROUP BY b.DESCRIPTION
+                        ON a.EXPAND_FIELD5 = b.CODE_NAME 
+                        AND b.TABLE_NAME = 'CUSTOMER_DST'
+                    WHERE 
+                        a.PLANT = 'PKTNG'
+                        AND a.forecast_sdate >= '{today_str}' 
+                        AND a.forecast_sdate < '{tomorrow_str}'
+                        AND a.status = 'Y'
+                        AND a.WORK_LINE = 'D'
+                    GROUP BY 
+                        b.DESCRIPTION
                 """
                 oracle_cursor.execute(oracle_query)
                 oracle_result = oracle_cursor.fetchone()
@@ -320,16 +375,77 @@ class ProductionStatusBoard(QWidget):
                 if oracle_result:
                     destination_value = oracle_result[0]
                     plan_value = oracle_result[1]
-                    self.sections["DESTINATION"].setText(destination_value)
+
+                    device_id = oracle_result[2]
+                    color_query = f"""
+                                SELECT GET_SYSCODE_DESC_ONLY(PLANT,'DEVICE_COLOR' ,EXPAND_FIELD22) AS COLOR   
+                                FROM ( 
+                                        SELECT  A.PLANT
+                                            , B.DEVICE
+                                            , B.DEVICE_LTYPE
+                                            , B.DEVICE_MTYPE
+                                            , B.DEVICE_STYPE
+                                            , B.EXPAND_FIELD20 
+                                            , B.EXPAND_FIELD21 
+                                            , B.EXPAND_FIELD22 
+                                            , B.EXPAND_FIELD23 
+                                            , GROUP_CATEGORY
+                                            , GROUP_OBJECT
+                                            , GROUP_VALUE             
+                                        FROM ADM_GROUP_CATEGORY_DATA A
+                                            , ADM_DEVICE_SPEC B
+                                        WHERE A.PLANT = 'PKTNG'
+                                        AND A.PLANT = B.PLANT 
+                                        AND A.GROUP_TARGET = 'DEVICE'
+                                        AND A.GROUP_OBJECT = '{device_id}'
+                                        AND B.DEVICE = A.GROUP_OBJECT
+                                    ) 
+                                PIVOT (
+                                        MIN(GROUP_VALUE) FOR GROUP_CATEGORY IN (
+                                                                                'Device Product Code' AS Device_Product_Code
+                                                                                , 'Sleeve Code' AS SLEEVE_CODE
+                                                                                , 'Destination' AS DESTINATION
+                                                                                , 'Ship_Type' AS SHIP_TYPE )
+                                    )
+                                """
+
+                    color_result = oracle_cursor.execute(color_query).fetchone()
+                    color_value = color_result[0] if color_result else "N/A"
+                    
+                    # Cập nhật header color dựa trên color_value
+                    if color_value and color_value != "N/A":
+                        self.update_header_color(color_value)
+                    
+                    self.sections["COLOR / DESTINATION"].setText(f"{color_value} / {destination_value}")
                     self.sections["PLAN"].setText(str(plan_value))
                 else:
-                    self.sections["DESTINATION"].setText("No data")
+                    self.sections["COLOR / DESTINATION"].setText("No data")
                     self.sections["PLAN"].setText("No data")
+                    # Reset về màu mặc định khi không có dữ liệu
+                    self.update_header_color("GREEN")
+                    # Reset màu chữ COLOR / DESTINATION về đen
+                    if hasattr(self, 'color_destination_label'):
+                        self.color_destination_label.setStyleSheet("color: black; border: none;")
+                    # Reset hình ảnh về mặc định
+                    if hasattr(self, 'color_image_label'):
+                        self.color_image_label.clear()
+                        self.color_image_label.setText("N/A")
+                        self.color_image_label.setStyleSheet("background-color: transparent; border: none; color: gray; font-weight: bold; font-size: 16px;")
 
             except Exception as e:
                 print(f"Error fetching Oracle data: {e}")
-                self.sections["DESTINATION"].setText("Error")
+                self.sections["COLOR / DESTINATION"].setText("Error")
                 self.sections["PLAN"].setText("Error")
+                # Reset về màu mặc định khi có lỗi
+                self.update_header_color("GREEN")
+                # Reset màu chữ COLOR / DESTINATION về đen
+                if hasattr(self, 'color_destination_label'):
+                    self.color_destination_label.setStyleSheet("color: black; border: none;")
+                # Reset hình ảnh về mặc định
+                if hasattr(self, 'color_image_label'):
+                    self.color_image_label.clear()
+                    self.color_image_label.setText("ERR")
+                    self.color_image_label.setStyleSheet("background-color: transparent; border: none; color: red; font-weight: bold; font-size: 16px;")
 
         # Update GAP and RATE(%)
         if plan_value > 0:
@@ -346,6 +462,105 @@ class ProductionStatusBoard(QWidget):
     def update_time(self):
         current_time = QDateTime.currentDateTime()
         self.time_label.setText(current_time.toString("yyyy-MM-dd HH:mm:ss"))
+
+    def update_header_color(self, color_value):
+        """Cập nhật màu sắc header dựa trên color_value"""
+        # Mapping màu sắc từ tên sang mã hex
+        color_mapping = {
+            'BLACK': '#000000',
+            'RED': '#FF0000',
+            'YELLOW': '#FFFF00',
+            'GREEN': '#008000',
+            'BLUE': '#0000FF',
+            'WHITE': '#FFFFFF',
+            'ORANGE': '#FFA500',
+            'PURPLE': '#800080',
+            'PINK': '#FFC0CB',
+            'GRAY': '#808080',
+            'GREY': '#808080',
+            'BROWN': '#A52A2A',
+            'CYAN': '#00FFFF',
+            'MAGENTA': '#FF00FF',
+            'LIME': '#00FF00',
+            'NAVY': '#000080',
+            'MAROON': '#800000',
+            'OLIVE': '#808000',
+            'TEAL': '#008080',
+            'SILVER': '#C0C0C0'
+        }
+        
+        # Lấy màu background, mặc định là màu xanh lá cây nếu không tìm thấy
+        bg_color = color_mapping.get(color_value.upper(), '#20D191')
+        
+        # Xác định màu text dựa trên độ sáng của background
+        # Những màu sáng sẽ dùng text đen, màu tối sẽ dùng text trắng
+        light_colors = ['YELLOW', 'WHITE', 'ORANGE', 'PINK', 'CYAN', 'LIME', 'SILVER']
+        text_color = 'black' if color_value.upper() in light_colors else 'white'
+        
+        # Cập nhật style của header widget
+        self.header_widget.setStyleSheet(f"background-color: {bg_color}; padding: 10px;")
+        
+        # Cập nhật màu text của header label và time label
+        self.header_label.setStyleSheet(f"color: {text_color};")
+        self.time_label.setStyleSheet(f"color: {text_color};")
+        
+        # Cập nhật màu chữ cho COLOR / DESTINATION label
+        color_hex = color_mapping.get(color_value.upper(), '#000000')
+        if hasattr(self, 'color_destination_label'):
+            self.color_destination_label.setStyleSheet(f"color: {color_hex}; border: none;")
+        
+        # Cập nhật hình ảnh màu
+        self.update_color_image(color_value)
+    
+    def update_color_image(self, color_value):
+        """Cập nhật hình ảnh màu dựa trên color_value"""
+        if not hasattr(self, 'color_image_label'):
+            return
+            
+        # Mapping tên màu sang tên file
+        color_file_mapping = {
+            'BLACK': 'black.png',
+            'RED': 'red.png',
+            'YELLOW': 'yellow.png',
+            'GREEN': 'green.png',
+            'BLUE': 'blue.png',
+            'WHITE': 'white.png',
+            'ORANGE': 'orange.png',
+            'PURPLE': 'purple.png',
+            'PINK': 'pink.png',
+            'GRAY': 'gray.png',
+            'GREY': 'gray.png',
+            'BROWN': 'brown.png',
+            'CYAN': 'cyan.png',
+            'MAGENTA': 'magenta.png',
+            'LIME': 'lime.png',
+            'NAVY': 'navy.png',
+            'MAROON': 'maroon.png',
+            'OLIVE': 'olive.png',
+            'TEAL': 'teal.png',
+            'SILVER': 'silver.png'
+        }
+        
+        # Lấy tên file ảnh
+        image_filename = color_file_mapping.get(color_value.upper(), 'default.png')
+        image_path = get_data_path(f"Resource/{image_filename}")
+        
+        # Kiểm tra file có tồn tại không
+        if os.path.exists(image_path):
+            pixmap = QPixmap(image_path)
+            # Với setScaledContents(True), chỉ cần set pixmap trực tiếp
+            # Qt sẽ tự động scale để vừa với container và giữ tỷ lệ
+            self.color_image_label.setPixmap(pixmap)
+        else:
+            # Nếu không tìm thấy file, hiển thị text màu
+            self.color_image_label.clear()
+            self.color_image_label.setText(color_value)
+            self.color_image_label.setStyleSheet(f"background-color: transparent; border: none; color: {color_value.lower()}; font-weight: bold; font-size: 16px;")
+
+    def resizeEvent(self, event):
+        """Cập nhật khi thay đổi kích thước cửa sổ"""
+        super().resizeEvent(event)
+        # Hình ảnh giờ đây được quản lý bởi layout, không cần di chuyển thủ công
 
 def create_gui_P230(create_login_ui, create_gui_P1, create_gui_P4, create_gui_P140):
     class MainWindow(QMainWindow):
