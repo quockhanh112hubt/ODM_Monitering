@@ -59,18 +59,32 @@ class ProductionStatusBoard(QWidget):
         timer.timeout.connect(self.update_time)
         timer.start(1000)
 
+        # Tạo device description label
+        self.device_description_label = QLabel("Loading device info...")
+        self.device_description_label.setFont(QFont("Arial", 16))
+        self.device_description_label.setStyleSheet("color: white;")
+        self.device_description_label.setAlignment(Qt.AlignLeft)  # Đổi từ Center sang Left
+
         # Lưu trữ references để có thể cập nhật màu sắc sau
         self.header_widget = QWidget()
         self.header_label = header_label
         self.header_widget.setStyleSheet("background-color: #20D191; padding: 10px;")
         
-        # Điều chỉnh layout để time ở bên phải
-        header_layout.addWidget(header_label)
-        header_layout.addStretch()  # Đẩy time_label về bên phải
-        header_layout.addWidget(self.time_label)
+        # Tạo layout dọc cho header để chứa cả title và description
+        header_main_layout = QVBoxLayout()
         
-        self.header_widget.setLayout(header_layout)
-        self.header_widget.setFixedHeight(150) 
+        # Layout ngang cho title và time
+        header_top_layout = QHBoxLayout()
+        header_top_layout.addWidget(header_label)
+        header_top_layout.addStretch()  # Đẩy time_label về bên phải
+        header_top_layout.addWidget(self.time_label)
+        
+        # Thêm title layout và description vào layout chính
+        header_main_layout.addLayout(header_top_layout)
+        header_main_layout.addWidget(self.device_description_label)
+        
+        self.header_widget.setLayout(header_main_layout)
+        self.header_widget.setFixedHeight(180)  # Tăng chiều cao để chứa description 
 
         main_layout.addWidget(self.header_widget)
 
@@ -377,7 +391,8 @@ class ProductionStatusBoard(QWidget):
 
                     device_id = oracle_result[2]
                     color_query = f"""
-                                SELECT GET_SYSCODE_DESC_ONLY(PLANT,'DEVICE_COLOR' ,EXPAND_FIELD22) AS COLOR   
+                                SELECT GET_SYSCODE_DESC_ONLY(PLANT,'DEVICE_COLOR' ,EXPAND_FIELD22) AS COLOR,
+                                        GET_DEVICE_DESC_ONLY(PLANT,DEVICE)
                                 FROM ( 
                                         SELECT  A.PLANT
                                             , B.DEVICE
@@ -410,6 +425,11 @@ class ProductionStatusBoard(QWidget):
 
                     color_result = oracle_cursor.execute(color_query).fetchone()
                     color_value = color_result[0] if color_result else "N/A"
+                    device_description = color_result[1] if color_result else "N/A"
+                    
+                    # Cập nhật device description
+                    if hasattr(self, 'device_description_label'):
+                        self.device_description_label.setText(device_description)
                     
                     # Cập nhật header color dựa trên color_value
                     if color_value and color_value != "N/A":
@@ -420,6 +440,9 @@ class ProductionStatusBoard(QWidget):
                 else:
                     self.sections["COLOR / DESTINATION"].setText("No data")
                     self.sections["PLAN"].setText("No data")
+                    # Reset device description
+                    if hasattr(self, 'device_description_label'):
+                        self.device_description_label.setText("No device info available")
                     # Reset về màu mặc định khi không có dữ liệu
                     self.update_header_color("GREEN")
                     # Reset màu chữ COLOR / DESTINATION về đen
@@ -435,6 +458,9 @@ class ProductionStatusBoard(QWidget):
                 print(f"Error fetching Oracle data: {e}")
                 self.sections["COLOR / DESTINATION"].setText("Error")
                 self.sections["PLAN"].setText("Error")
+                # Reset device description khi có lỗi
+                if hasattr(self, 'device_description_label'):
+                    self.device_description_label.setText("Error loading device info")
                 # Reset về màu mặc định khi có lỗi
                 self.update_header_color("GREEN")
                 # Reset màu chữ COLOR / DESTINATION về đen
@@ -503,6 +529,10 @@ class ProductionStatusBoard(QWidget):
         self.header_label.setStyleSheet(f"color: {text_color};")
         self.time_label.setStyleSheet(f"color: {text_color};")
         
+        # Cập nhật màu text của device description label
+        if hasattr(self, 'device_description_label'):
+            self.device_description_label.setStyleSheet(f"color: {text_color};")
+        
         # Cập nhật màu chữ cho COLOR / DESTINATION label
         color_hex = color_mapping.get(color_value.upper(), '#000000')
         if hasattr(self, 'color_destination_label'):
@@ -537,7 +567,8 @@ class ProductionStatusBoard(QWidget):
             'MAROON': 'maroon.png',
             'OLIVE': 'olive.png',
             'TEAL': 'teal.png',
-            'SILVER': 'silver.png'
+            'SILVER': 'silver.png',
+            'NONE': 'none.png'
         }
         
         # Lấy tên file ảnh
