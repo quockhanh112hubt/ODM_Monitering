@@ -21,7 +21,7 @@ PROGRAM_DIRECTORY = "C:\\ODM_Monitering"
 UPDATE_SCRIPT_EXECUTABLE = os.path.join(PROGRAM_DIRECTORY, "update_script.exe")
 
 #FTP Server
-FTP_BASE_URL = "ftp://update:update@192.168.110.12/KhanhDQ/Update_Program/ODM_Monitering/"
+FTP_BASE_URL = "ftp://update:update@10.62.102.5/KhanhDQ/Update_Program/ODM_Monitering/"
 VERSION_URL = FTP_BASE_URL + "version.txt"
 
 app_qt = None
@@ -88,7 +88,7 @@ def connect_to_oracle():
     connection = cx_Oracle.connect(
         user="mighty",
         password="mighty",
-        dsn="(DESCRIPTION=(LOAD_BALANCE=yes)(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.35.20)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.35.20)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ITMVPACKMES)(FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))"
+        dsn="(DESCRIPTION=(LOAD_BALANCE=yes)(ADDRESS=(PROTOCOL=TCP)(HOST=10.162.200.20)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ITMVPACKMES)(FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))"
     )
     return connection
 

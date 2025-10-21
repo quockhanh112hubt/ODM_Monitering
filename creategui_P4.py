@@ -153,7 +153,7 @@ class ProductionStatusBoard(QWidget):
         try:
             self.conn = pyodbc.connect(
                 'DRIVER={ODBC Driver 17 for SQL Server};'
-                'SERVER=192.168.35.32,1433;'
+                'SERVER=10.162.200.32,1433;'
                 'DATABASE=ITMV_KTNG_DB;'
                 'UID=ITMV_KTNG;'
                 'PWD=!itm@semi!12;'
@@ -167,7 +167,7 @@ class ProductionStatusBoard(QWidget):
             self.oracle_conn = cx_Oracle.connect(
                 user="mighty",
                 password="mighty",
-                dsn="(DESCRIPTION=(LOAD_BALANCE=yes)(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.35.20)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.35.20)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ITMVPACKMES)(FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))"
+                dsn="(DESCRIPTION=(LOAD_BALANCE=yes)(ADDRESS=(PROTOCOL=TCP)(HOST=10.162.200.20)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=ITMVPACKMES)(FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))"
             )
         except Exception as e:
             print(f"Error connecting to Oracle database: {e}")

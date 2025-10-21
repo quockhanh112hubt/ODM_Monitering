@@ -16,7 +16,7 @@ UPDATE_ZIP_PATH = os.path.join(PROGRAM_DIRECTORY, "update.zip")
 VERSION_FLAG_FILE = os.path.join(PROGRAM_DIRECTORY, "version_flag.txt")
 
 # Đường dẫn tới FTP Server
-FTP_SERVER = "192.168.110.12"
+FTP_SERVER = "10.62.102.5"
 FTP_USER = "update"
 FTP_PASS = "update"
 FTP_DIRECTORY = "KhanhDQ/Update_Program/ODM_Monitering/"
