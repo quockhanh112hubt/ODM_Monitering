@@ -90,11 +90,11 @@ class ProductionStatusBoard(QWidget):
 
         self.line_selector = QComboBox()
         self.line_selector.addItems([
-            "SUB(Cover Heater Test) LINE",
-            "MAIN1(Charger Current) LINE",
-            "MAIN2(Cali & Verification) LINE",
-            "Inspection(Final Test) LINE",
-            "PACKING(Carton Box) LINE"
+            "SUB LINE : Cover Heater Assy 기능 검사",
+            "MAIN1 LINE : Charging Current",
+            "MAIN2 LINE : Smart On/Off",
+            "INSPECTION LINE : MES Interlock Test",
+            "PACKING : Carton Box 포장"
         ])
         self.line_selector.currentIndexChanged.connect(self.update_data_from_db)
 
@@ -114,7 +114,7 @@ class ProductionStatusBoard(QWidget):
             padding: 20px;
         """)
 
-        self.main_line_label = QLabel("SUB(Cover Heater Test) LINE")
+        self.main_line_label = QLabel("SUB LINE : Cover Heater Assy 기능 검사")
         self.main_line_label.setFont(QFont("Arial", 48, QFont.Bold))
         self.main_line_label.setAlignment(Qt.AlignLeft)
         self.main_line_label.setFixedHeight(150)
@@ -241,7 +241,7 @@ class ProductionStatusBoard(QWidget):
                 query = None  # Khởi tạo biến query
 
                 # Xác định truy vấn dựa trên dòng đã chọn
-                if selected_line == "SUB(Cover Heater Test) LINE":
+                if selected_line == "SUB LINE : Cover Heater Assy 기능 검사":
                     query = f"""
                         select count(*) as prod
                         from ITMV_KTNG_DB.dbo.AFA_P140_COVER_HEATER_FUNCTION_HISTORY a
@@ -254,7 +254,7 @@ class ProductionStatusBoard(QWidget):
                             and work_time < '{end_work_time_str}'
                         )
                     """
-                elif selected_line == "MAIN1(Charger Current) LINE":
+                elif selected_line == "MAIN1 LINE : Charging Current":
                     query = f""" 
                         select count(*) as prod
                         from ITMV_KTNG_DB.dbo.AFA_P140_CHARGE_CURRENT_HISTORY a
@@ -267,7 +267,7 @@ class ProductionStatusBoard(QWidget):
                             and work_time < '{end_work_time_str}'
                         )
                     """
-                elif selected_line == "MAIN2(Cali & Verification) LINE":
+                elif selected_line == "MAIN2 LINE : Smart On/Off":
                     query = f""" 
                         select count(*) as prod
                         from ITMV_KTNG_DB.dbo.AFA_P140_VERIFICATION_HISTORY a
@@ -280,7 +280,7 @@ class ProductionStatusBoard(QWidget):
                             and work_time < '{end_work_time_str}'
                         )
                     """
-                elif selected_line == "Inspection(Final Test) LINE":
+                elif selected_line == "INSPECTION LINE : MES Interlock Test":
                     query = f"""
                         select count(*) as prod
                         from ITMV_KTNG_DB.dbo.AFA_P140_FINAL_TEST_HISTORY a
@@ -304,7 +304,7 @@ class ProductionStatusBoard(QWidget):
                     else:
                         self.sections["ACTUAL"].setText("No data")
                 else:
-                    if selected_line == "INSP 4-2(MES Matching) LINE" or "PACKING(Carton Box) LINE":
+                    if selected_line == "INSP 4-2(MES Matching) LINE" or "PACKING : Carton Box 포장":
                         query = None
 
             except Exception as e:
@@ -327,7 +327,7 @@ class ProductionStatusBoard(QWidget):
                         AND a.DEVICE_ID IS NOT NULL
                         AND a.SUBLOT_USER_ID = 'P140'
                     """
-                elif selected_line == "PACKING(Carton Box) LINE":
+                elif selected_line == "PACKING : Carton Box 포장":
                     oracle_query = f""" 
                         SELECT COUNT(*) as prod
                         FROM ASFC_SUBLOT_INFO a
