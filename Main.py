@@ -217,7 +217,7 @@ def create_login_ui():
     combo = ttk.Combobox(option_frame, textvariable=option_var, font=("Arial", 12), state="readonly")
     combo['values'] = ("ECIGA-P1", "ECIGA-P2 3.0", "ECIGA-P4", "ECIGA-P140", "ECIGA-P6(Coming Soon)")
     combo.place(relx=0.5, rely=0.5, anchor='center', width=240, height=30)
-    combo.current(1)
+    combo.current(3)
 
     # Nút đăng nhập
     login_button = tk.Button(frame, text="LOGIN", command=login, bg='#00796b', fg='#003366', font=("Arial", 14))
