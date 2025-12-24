@@ -534,7 +534,7 @@ class ProductionStatusBoard(QWidget):
             'RED': '#FF0000',
             'YELLOW': '#FFFF00',
             'MOCHA': '#A67B5B',
-            'GREEN': '#008000',
+            'GREEN': '#80C3CC',
             'BLUE': '#0000FF',
             'WHITE': '#FFFFFF',
             'ORANGE': '#FFA500',
