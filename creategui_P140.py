@@ -334,19 +334,12 @@ class ProductionStatusBoard(QWidget):
                 # Chỉ xác định một truy vấn cho Oracle
                 if selected_line == "INSPECTION LINE : MES Interlock Test":
                     oracle_query = f""" 
-		                SELECT COUNT(*) as prod
+                        SELECT COUNT(*) as prod
                         FROM ASFC_SUBLOT_INFO a
                         WHERE a.DEVICE_ID IS NOT NULL
                         AND a.SUBLOT_USER_ID = 'P140'
-                        AND SUBLOT_ORDER_NO in(
-                            SELECT 
-                        		b.PROD_ORDER_NO AS ORDER_NO
-                    		FROM asfc_prod_plan_data b
-                    		WHERE 
-		                        b.PLANT = 'PKTNG'
-		                        AND b.status = 'Y'
-		                        AND b.WORK_LINE = 'E'
-		                        )
+                        AND DEVICE_ATTACH_DATE >= '{start_work_time_str}'
+                        AND DEVICE_ATTACH_DATE < '{end_work_time_str}'
                     """
                 elif selected_line == "PACKING : Carton Box 포장":
                     oracle_query = f""" 
@@ -354,15 +347,8 @@ class ProductionStatusBoard(QWidget):
                         FROM ASFC_SUBLOT_INFO a
                         WHERE a.CARTON_BOX_ID IS NOT NULL
                         AND a.SUBLOT_USER_ID = 'P140'
-                        AND SUBLOT_ORDER_NO in(
-                            SELECT 
-                        		b.PROD_ORDER_NO AS ORDER_NO
-                    		FROM asfc_prod_plan_data b
-                    		WHERE 
-		                        b.PLANT = 'PKTNG'
-		                        AND b.status = 'Y'
-		                        AND b.WORK_LINE = 'E'
-		                        )
+                        AND CBOX_ATTACH_DATE >= '{start_work_time_str}'
+                        AND CBOX_ATTACH_DATE < '{end_work_time_str}'
                     """
 
                 # Chỉ thực hiện truy vấn nếu biến oracle_query không phải là None
