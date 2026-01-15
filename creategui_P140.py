@@ -227,13 +227,28 @@ class ProductionStatusBoard(QWidget):
         actual_value = 0
         plan_value = 0
 
-        today = datetime.now()
-        tomorrow = today + timedelta(days=1)
+        # Determine work shift window correctly so night shift (19:00-07:00)
+        # includes the previous evening when current time is after midnight.
+        now = datetime.now()
 
-        today_str = today.strftime('%Y%m%d')
-        tomorrow_str = tomorrow.strftime('%Y%m%d')
-        start_work_time_str = today.strftime('%Y%m%d') + '070000'
-        end_work_time_str = tomorrow.strftime('%Y%m%d') + '070000'
+        # Day shift: 07:00 - 19:00 on the same calendar day
+        # Night shift: 19:00 - 07:00 (spans two calendar days)
+        if 7 <= now.hour < 19:
+            start_dt = now.replace(hour=7, minute=0, second=0, microsecond=0)
+            end_dt = now.replace(hour=19, minute=0, second=0, microsecond=0)
+        else:
+            if now.hour >= 19:
+                # current evening: night shift starts today 19:00 and ends next day 07:00
+                start_dt = now.replace(hour=19, minute=0, second=0, microsecond=0)
+                end_dt = (now + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
+            else:
+                # after midnight before 07:00: night shift started previous day 19:00
+                start_dt = (now - timedelta(days=1)).replace(hour=19, minute=0, second=0, microsecond=0)
+                end_dt = now.replace(hour=7, minute=0, second=0, microsecond=0)
+
+        # Format for queries: YYYYMMDDHHMMSS
+        start_work_time_str = start_dt.strftime('%Y%m%d%H%M%S')
+        end_work_time_str = end_dt.strftime('%Y%m%d%H%M%S')
 
         if self.conn:
             cursor = self.conn.cursor()
@@ -270,17 +285,17 @@ class ProductionStatusBoard(QWidget):
                 elif selected_line == "MAIN2 LINE : Smart On/Off":
                     query = f""" 
                         select count(*) as prod
-                        from ITMV_KTNG_DB.dbo.AFA_P140_VERIFICATION_HISTORY a
+                        from ITMV_KTNG_DB.dbo.AFA_P140_SMART_ONOFF_HISTORY a
                         where row_id in (
                             select max(row_id)
-                            from ITMV_KTNG_DB.dbo.AFA_P140_VERIFICATION_HISTORY b
+                            from ITMV_KTNG_DB.dbo.AFA_P140_SMART_ONOFF_HISTORY b
                             where b.mcu_id = a.mcu_id
                             and total_judgment = 'PASS'
                             and work_time >= '{start_work_time_str}'
                             and work_time < '{end_work_time_str}'
                         )
                     """
-                elif selected_line == "INSPECTION LINE : MES Interlock Test":
+                elif selected_line == "INSP 4-2(Final Test) LINE":
                     query = f"""
                         select count(*) as prod
                         from ITMV_KTNG_DB.dbo.AFA_P140_FINAL_TEST_HISTORY a
@@ -304,7 +319,7 @@ class ProductionStatusBoard(QWidget):
                     else:
                         self.sections["ACTUAL"].setText("No data")
                 else:
-                    if selected_line == "INSP 4-2(MES Matching) LINE" or "PACKING : Carton Box 포장":
+                    if selected_line == "INSPECTION LINE : MES Interlock Test" or "PACKING : Carton Box 포장":
                         query = None
 
             except Exception as e:
@@ -317,25 +332,37 @@ class ProductionStatusBoard(QWidget):
                 oracle_query = None  # Khởi tạo biến oracle_query
 
                 # Chỉ xác định một truy vấn cho Oracle
-                if selected_line == "INSP 4-2(MES Matching) LINE":
+                if selected_line == "INSPECTION LINE : MES Interlock Test":
                     oracle_query = f""" 
-                        SELECT COUNT(*) as prod
+		                SELECT COUNT(*) as prod
                         FROM ASFC_SUBLOT_INFO a
-                        WHERE a.plant = 'PKTNG'
-                        AND a.DEVICE_ATTACH_DATE >= '{start_work_time_str}'
-                        AND a.DEVICE_ATTACH_DATE < '{end_work_time_str}'
-                        AND a.DEVICE_ID IS NOT NULL
+                        WHERE a.DEVICE_ID IS NOT NULL
                         AND a.SUBLOT_USER_ID = 'P140'
+                        AND SUBLOT_ORDER_NO in(
+                            SELECT 
+                        		b.PROD_ORDER_NO AS ORDER_NO
+                    		FROM asfc_prod_plan_data b
+                    		WHERE 
+		                        b.PLANT = 'PKTNG'
+		                        AND b.status = 'Y'
+		                        AND b.WORK_LINE = 'E'
+		                        )
                     """
                 elif selected_line == "PACKING : Carton Box 포장":
                     oracle_query = f""" 
                         SELECT COUNT(*) as prod
                         FROM ASFC_SUBLOT_INFO a
-                        WHERE a.plant = 'PKTNG'
-                        AND a.CBOX_ATTACH_DATE >= '{start_work_time_str}'
-                        AND a.CBOX_ATTACH_DATE < '{end_work_time_str}'
-                        AND a.CARTON_BOX_ID IS NOT NULL
+                        WHERE a.CARTON_BOX_ID IS NOT NULL
                         AND a.SUBLOT_USER_ID = 'P140'
+                        AND SUBLOT_ORDER_NO in(
+                            SELECT 
+                        		b.PROD_ORDER_NO AS ORDER_NO
+                    		FROM asfc_prod_plan_data b
+                    		WHERE 
+		                        b.PLANT = 'PKTNG'
+		                        AND b.status = 'Y'
+		                        AND b.WORK_LINE = 'E'
+		                        )
                     """
 
                 # Chỉ thực hiện truy vấn nếu biến oracle_query không phải là None
