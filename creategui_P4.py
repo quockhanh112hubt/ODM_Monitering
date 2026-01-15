@@ -314,8 +314,6 @@ class ProductionStatusBoard(QWidget):
                     LEFT OUTER JOIN SYS_SYSTEM_CODE_DATA b 
                     ON a.EXPAND_FIELD5 = b.CODE_NAME AND TABLE_NAME = 'CUSTOMER_DST'
                     WHERE a.PLANT = 'PKTNG'
-                    AND forecast_sdate >= '{today_str}' 
-                    AND forecast_sdate < '{tomorrow_str}'
                     AND status = 'Y'
                     AND WORK_LINE = 'C'
                     GROUP BY b.DESCRIPTION

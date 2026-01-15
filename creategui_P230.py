@@ -375,8 +375,6 @@ class ProductionStatusBoard(QWidget):
                         AND b.TABLE_NAME = 'CUSTOMER_DST'
                     WHERE 
                         a.PLANT = 'PKTNG'
-                        AND a.forecast_sdate >= '{today_str}' 
-                        AND a.forecast_sdate < '{tomorrow_str}'
                         AND a.status = 'Y'
                         AND a.WORK_LINE = 'D'
                     GROUP BY 
