@@ -241,13 +241,28 @@ class ProductionStatusBoard(QWidget):
         actual_value = 0
         plan_value = 0
 
-        today = datetime.now()
-        tomorrow = today + timedelta(days=1)
+        # Determine work shift window correctly so night shift (19:00-07:00)
+        # includes the previous evening when current time is after midnight.
+        now = datetime.now()
 
-        today_str = today.strftime('%Y%m%d')
-        tomorrow_str = tomorrow.strftime('%Y%m%d')
-        start_work_time_str = today.strftime('%Y%m%d') + '070000'
-        end_work_time_str = tomorrow.strftime('%Y%m%d') + '070000'
+        # Day shift: 07:00 - 19:00 on the same calendar day
+        # Night shift: 19:00 - 07:00 (spans two calendar days)
+        if 7 <= now.hour < 19:
+            start_dt = now.replace(hour=7, minute=0, second=0, microsecond=0)
+            end_dt = now.replace(hour=19, minute=0, second=0, microsecond=0)
+        else:
+            if now.hour >= 19:
+                # current evening: night shift starts today 19:00 and ends next day 07:00
+                start_dt = now.replace(hour=19, minute=0, second=0, microsecond=0)
+                end_dt = (now + timedelta(days=1)).replace(hour=7, minute=0, second=0, microsecond=0)
+            else:
+                # after midnight before 07:00: night shift started previous day 19:00
+                start_dt = (now - timedelta(days=1)).replace(hour=19, minute=0, second=0, microsecond=0)
+                end_dt = now.replace(hour=7, minute=0, second=0, microsecond=0)
+
+        # Format for queries: YYYYMMDDHHMMSS
+        start_work_time_str = start_dt.strftime('%Y%m%d%H%M%S')
+        end_work_time_str = end_dt.strftime('%Y%m%d%H%M%S')
 
         if self.conn:
             cursor = self.conn.cursor()
